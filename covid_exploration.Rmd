@@ -1,0 +1,95 @@
+---
+title: "covid_exploration"
+author: "Gabe Cederberg"
+date: "6/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+library(RCurl)
+
+```
+
+```{r, echo = FALSE}
+# load data
+
+county_text <- getURL("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
+county <- read_csv(county_text) 
+
+a <- county %>% 
+  filter(county == "Ramsey" & state == "Minnesota")
+
+ggplot(a, aes(date, cases)) +
+  geom_point()
+
+a$cases <- diff(a$cases)
+  
+
+b <- a %>% 
+  mutate(delta = diff(a$cases))
+
+
+%>% 
+  select(county, state, fips, cases) %>% 
+    group_by(county, state) %>% 
+  mutate(max_case = max(cases)) %>%   
+  filter(cases == max_case) %>% 
+  ungroup() %>% 
+  distinct()
+
+```
+
+```{r}
+excess_death <- getURL("https://raw.githubusercontent.com/nytimes/covid-19-data/master/excess-deaths/deaths.csv")
+excess_dead <- read_csv(excess_death)
+
+pop <- read_csv("~/Desktop/Projects/covid_exploration/API_SP.POP.TOTL_DS2_en_csv_v2_1120881.csv", 
+                skip = 3) %>% 
+  clean_names() %>% 
+  select(country_name, "pop" = x2018)
+
+excess <- excess_dead %>% 
+  left_join(pop, by = c("country" = "country_name"))
+
+excess %>% 
+  distinct(country)
+
+nordic <- excess %>% 
+  filter(country == c("Sweden", "Finland", "Norway", "Denmark"))
+
+a <- nordic %>% 
+  group_by(year) %>% 
+  mutate(deaths_pc = deaths / pop) %>% 
+  filter(year == "2020" | year == "2019")
+
+avg <- nordic %>% filter(year == "2016" |
+                           year == "2017" |
+                           year == "2018") %>% 
+  group_by(week) %>% 
+  mutate(avg = mean(deaths)) %>% 
+  pull(avg)
+
+c <- nordic %>% 
+  group_by(year) %>% 
+  filter(year > "2015") %>% 
+  mutate(deaths_special = ifelse(year < "2019", avg, deaths))
+
+ggplot(c, aes(week, deaths_special, color = country)) +
+    geom_point()
+```
+
+
+```{r}
+recent <- nordic %>% 
+    group_by(year) %>% 
+  mutate(deaths_pc = deaths / pop) %>% 
+  filter(year == "2020")
+
+ggplot(recent, aes(week, deaths_pc, color = country)) +
+    geom_line()
+```
+
+
